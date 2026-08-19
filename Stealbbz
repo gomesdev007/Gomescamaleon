@@ -1,0 +1,255 @@
+-- [[ GOMES GUI CUSTOM - BLACK EDITION ]] --
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- GUI BASE
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GomesCustomUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 220, 0, 260)
+MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "GOMES HUB"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
+Title.Font = Enum.Font.SourceSansBold
+Title.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout")
+UIList.Parent = MainFrame
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 5)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+Title.LayoutOrder = 0
+
+-- ESTADO DAS FUNÇÕES
+local State = {
+    InfJump = false,
+    ChaoMagico = false,
+    Levitacao = false,
+    ESPName = false
+}
+
+local Platform = nil
+local LevitateConnection = nil
+
+-- FUNÇÃO CRIAR BOTÃO
+local function CreateButton(text, order, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0.85, 0, 0, 32)
+    Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Btn.Text = text .. ": OFF"
+    Btn.Font = Enum.Font.SourceSans
+    Btn.TextSize = 14
+    Btn.LayoutOrder = order
+    Btn.Parent = MainFrame
+
+    local BtnCorner = Instance.new("UICorner")
+    BtnCorner.CornerRadius = UDim.new(0, 6)
+    BtnCorner.Parent = Btn
+
+    local BtnStroke = Instance.new("UIStroke")
+    BtnStroke.Color = Color3.fromRGB(255, 255, 255)
+    BtnStroke.Thickness = 1
+    BtnStroke.Parent = Btn
+
+    local enabled = false
+    Btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        Btn.Text = text .. (enabled and ": ON" or ": OFF")
+        callback(enabled)
+    end)
+
+    return function(setVal)
+        enabled = setVal
+        Btn.Text = text .. (enabled and ": ON" or ": OFF")
+        callback(enabled)
+    end
+end
+
+-- 1. INFINITE JUMP (COM PROTEÇÃO ANTI-RUBBERBAND)
+local ToggleInfJump = CreateButton("Inf Jump", 1, function(v)
+    State.InfJump = v
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if State.InfJump and LocalPlayer.Character then
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if humanoid and root then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
+        end
+    end
+end)
+
+-- 2. CHÃO MÁGICO (4s AUTO-DISABLE)
+local ToggleChaoMagico
+
+local function ActivateChaoMagico(v)
+    State.ChaoMagico = v
+    if State.ChaoMagico then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            if Platform then Platform:Destroy() end
+            
+            Platform = Instance.new("Part")
+            Platform.Size = Vector3.new(6, 1, 6)
+            Platform.Anchored = true
+            Platform.CanCollide = true
+            Platform.Color = Color3.fromRGB(0, 0, 0)
+            Platform.Material = Enum.Material.SmoothPlastic
+            Platform.Parent = workspace
+
+            local root = char.HumanoidRootPart
+            Platform.CFrame = CFrame.new(root.Position.X, root.Position.Y - 3.5, root.Position.Z)
+
+            local conn
+            conn = RunService.Heartbeat:Connect(function(dt)
+                if State.ChaoMagico and Platform and char:FindFirstChild("HumanoidRootPart") then
+                    local currentPos = Platform.Position
+                    Platform.CFrame = CFrame.new(root.Position.X, currentPos.Y + (1.5 * dt), root.Position.Z)
+                else
+                    conn:Disconnect()
+                end
+            end)
+
+            task.delay(4, function()
+                if State.ChaoMagico then
+                    ToggleChaoMagico(false)
+                end
+            end)
+        end
+    else
+        if Platform then
+            Platform:Destroy()
+            Platform = nil
+        end
+    end
+end
+
+ToggleChaoMagico = CreateButton("Chão Mágico (F)", 2, ActivateChaoMagico)
+
+-- 3. LEVITAÇÃO (3s AUTO-DISABLE)
+local ToggleLevitacao
+
+local function ActivateLevitacao(v)
+    State.Levitacao = v
+    if State.Levitacao then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local root = char.HumanoidRootPart
+            
+            LevitateConnection = RunService.Heartbeat:Connect(function()
+                if State.Levitacao and root then
+                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 12, root.AssemblyLinearVelocity.Z)
+                end
+            end)
+
+            task.delay(3, function()
+                if State.Levitacao then
+                    ToggleLevitacao(false)
+                end
+            end)
+        end
+    else
+        if LevitateConnection then
+            LevitateConnection:Disconnect()
+            LevitateConnection = nil
+        end
+    end
+end
+
+ToggleLevitacao = CreateButton("Levitar (R)", 3, ActivateLevitacao)
+
+-- 4. ESP NAME
+local function ApplyESP(plr)
+    if plr == LocalPlayer then return end
+    plr.CharacterAdded:Connect(function(char)
+        if State.ESPName then
+            task.wait(0.5)
+            if char:FindFirstChild("Head") and not char.Head:FindFirstChild("GomesNameESP") then
+                local bb = Instance.new("BillboardGui")
+                bb.Name = "GomesNameESP"
+                bb.Size = UDim2.new(0, 100, 0, 30)
+                bb.StudsOffset = Vector3.new(0, 2, 0)
+                bb.AlwaysOnTop = true
+                bb.Parent = char.Head
+
+                local lbl = Instance.new("TextLabel")
+                lbl.Size = UDim2.new(1, 0, 1, 0)
+                lbl.BackgroundTransparency = 1
+                lbl.Text = plr.Name
+                lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                lbl.TextSize = 13
+                lbl.Font = Enum.Font.SourceSansBold
+                lbl.Parent = bb
+            end
+        end
+    end)
+end
+
+for _, plr in pairs(Players:GetPlayers()) do ApplyESP(plr) end
+Players.PlayerAdded:Connect(ApplyESP)
+
+local ToggleESP = CreateButton("ESP Name", 4, function(v)
+    State.ESPName = v
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
+            local head = plr.Character.Head
+            if v then
+                if not head:FindFirstChild("GomesNameESP") then
+                    local bb = Instance.new("BillboardGui")
+                    bb.Name = "GomesNameESP"
+                    bb.Size = UDim2.new(0, 100, 0, 30)
+                    bb.StudsOffset = Vector3.new(0, 2, 0)
+                    bb.AlwaysOnTop = true
+                    bb.Parent = head
+
+                    local lbl = Instance.new("TextLabel")
+                    lbl.Size = UDim2.new(1, 0, 1, 0)
+                    lbl.BackgroundTransparency = 1
+                    lbl.Text = plr.Name
+                    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    lbl.TextSize = 13
+                    lbl.Font = Enum.Font.SourceSansBold
+                    lbl.Parent = bb
+                end
+            else
+                if head:FindFirstChild("GomesNameESP") then
+                    head.GomesNameESP:Destroy()
+                end
+            end
+        end
+    end
+end)
+
+-- ATALHOS DE TECLADO (F e R)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.F then
+        ToggleChaoMagico(not State.ChaoMagico)
+    elseif input.KeyCode == Enum.KeyCode.R then
+        ToggleLevitacao(not State.Levitacao)
+    end
+end)
