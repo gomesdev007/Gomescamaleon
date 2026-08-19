@@ -1,255 +1,560 @@
--- [[ GOMES GUI CUSTOM - BLACK EDITION ]] --
-local Players = game:GetService("Players")
+-- GUI Aimbot Dark - Roblox ATUALIZADO
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
 
--- GUI BASE
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GomesCustomUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- Variáveis de Configuração
+local guiVisible = true
+local aimbotEnabled = false
+local espEnabled = false
+local ignoreBotsEnabled = false
+local fovSize = 150
+local fovVisible = true
+local boxSize = 2
+local smoothness = 0.15 -- Suavidade do aimbot
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 220, 0, 260)
-MainFrame.Position = UDim2.new(0.05, 0, 0.3, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+-- Cores
+local darkBg = Color3.fromRGB(0, 0, 0)
+local whiteFg = Color3.fromRGB(255, 255, 255)
+local accentColor = Color3.fromRGB(100, 150, 255)
+local enabledColor = Color3.fromRGB(0, 255, 0)
+local disabledColor = Color3.fromRGB(150, 0, 0)
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 10)
-UICorner.Parent = MainFrame
+-- Criar ScreenGui principal
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AimbotGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.BackgroundTransparency = 1
-Title.Text = "GOMES HUB"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 16
-Title.Font = Enum.Font.SourceSansBold
-Title.Parent = MainFrame
+-- Painel principal draggável
+local mainPanel = Instance.new("Frame")
+mainPanel.Name = "MainPanel"
+mainPanel.Size = UDim2.new(0, 280, 0, 480)
+mainPanel.Position = UDim2.new(0, 20, 0, 20)
+mainPanel.BackgroundColor3 = darkBg
+mainPanel.BackgroundTransparency = 0.05
+mainPanel.BorderSizePixel = 0
+mainPanel.Parent = screenGui
 
-local UIList = Instance.new("UIListLayout")
-UIList.Parent = MainFrame
-UIList.SortOrder = Enum.SortOrder.LayoutOrder
-UIList.Padding = UDim.new(0, 5)
-UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+-- Arredondar bordas do painel
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = mainPanel
 
-Title.LayoutOrder = 0
+-- Stroke para bordas
+local stroke = Instance.new("UIStroke")
+stroke.Color = accentColor
+stroke.Thickness = 2
+stroke.Parent = mainPanel
 
--- ESTADO DAS FUNÇÕES
-local State = {
-    InfJump = false,
-    ChaoMagico = false,
-    Levitacao = false,
-    ESPName = false
-}
+-- Título
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "Title"
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundColor3 = accentColor
+titleLabel.BackgroundTransparency = 0.2
+titleLabel.TextColor3 = whiteFg
+titleLabel.TextSize = 16
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.Text = "⚔ AIMBOT GUI"
+titleLabel.BorderSizePixel = 0
+titleLabel.Parent = mainPanel
 
-local Platform = nil
-local LevitateConnection = nil
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 12)
+titleCorner.Parent = titleLabel
 
--- FUNÇÃO CRIAR BOTÃO
-local function CreateButton(text, order, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0.85, 0, 0, 32)
-    Btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Btn.Text = text .. ": OFF"
-    Btn.Font = Enum.Font.SourceSans
-    Btn.TextSize = 14
-    Btn.LayoutOrder = order
-    Btn.Parent = MainFrame
+-- Botão Minimizar (X)
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Name = "MinimizeBtn"
+minimizeBtn.Size = UDim2.new(0, 35, 0, 35)
+minimizeBtn.Position = UDim2.new(1, -40, 0, 2.5)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+minimizeBtn.TextColor3 = whiteFg
+minimizeBtn.TextSize = 18
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.Text = "−"
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Parent = titleLabel
 
-    local BtnCorner = Instance.new("UICorner")
-    BtnCorner.CornerRadius = UDim.new(0, 6)
-    BtnCorner.Parent = Btn
+local minimizeBtnCorner = Instance.new("UICorner")
+minimizeBtnCorner.CornerRadius = UDim.new(0, 6)
+minimizeBtnCorner.Parent = minimizeBtn
 
-    local BtnStroke = Instance.new("UIStroke")
-    BtnStroke.Color = Color3.fromRGB(255, 255, 255)
-    BtnStroke.Thickness = 1
-    BtnStroke.Parent = Btn
+-- ScrollFrame para conteúdo
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Name = "ScrollFrame"
+scrollFrame.Size = UDim2.new(1, -10, 1, -60)
+scrollFrame.Position = UDim2.new(0, 5, 0, 45)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.ScrollBarImageColor3 = accentColor
+scrollFrame.Parent = mainPanel
 
-    local enabled = false
-    Btn.MouseButton1Click:Connect(function()
-        enabled = not enabled
-        Btn.Text = text .. (enabled and ": ON" or ": OFF")
-        callback(enabled)
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 8)
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Parent = scrollFrame
+
+-- Função para criar Toggle Button com indicador de status
+local function createToggle(name, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -10, 0, 45)
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.Parent = scrollFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.Size = UDim2.new(0.65, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = whiteFg
+    label.TextSize = 12
+    label.Font = Enum.Font.Gotham
+    label.Text = name
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+    
+    local statusDot = Instance.new("Frame")
+    statusDot.Name = "StatusDot"
+    statusDot.Size = UDim2.new(0, 10, 0, 10)
+    statusDot.Position = UDim2.new(0, 5, 1, -18)
+    statusDot.BackgroundColor3 = disabledColor
+    statusDot.BorderSizePixel = 0
+    statusDot.Parent = container
+    
+    local dotCorner = Instance.new("UICorner")
+    dotCorner.CornerRadius = UDim.new(0, 5)
+    dotCorner.Parent = statusDot
+    
+    local toggle = Instance.new("Frame")
+    toggle.Name = "Toggle"
+    toggle.Size = UDim2.new(0, 50, 0, 25)
+    toggle.Position = UDim2.new(0.65, 5, 0.5, -12.5)
+    toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    toggle.BorderSizePixel = 0
+    toggle.Parent = container
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 6)
+    toggleCorner.Parent = toggle
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "Button"
+    toggleButton.Size = UDim2.new(0, 20, 0, 20)
+    toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
+    toggleButton.BackgroundColor3 = whiteFg
+    toggleButton.TextColor3 = darkBg
+    toggleButton.Font = Enum.Font.GothamBold
+    toggleButton.TextSize = 12
+    toggleButton.Text = "✓"
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Parent = toggle
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 4)
+    btnCorner.Parent = toggleButton
+    
+    local isEnabled = false
+    
+    toggleButton.MouseButton1Click:Connect(function()
+        isEnabled = not isEnabled
+        if isEnabled then
+            toggleButton.Position = UDim2.new(0, 28, 0.5, -10)
+            toggle.BackgroundColor3 = accentColor
+            toggleButton.Text = "✓"
+            statusDot.BackgroundColor3 = enabledColor
+        else
+            toggleButton.Position = UDim2.new(0, 2, 0.5, -10)
+            toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            toggleButton.Text = ""
+            statusDot.BackgroundColor3 = disabledColor
+        end
+        callback(isEnabled)
     end)
-
-    return function(setVal)
-        enabled = setVal
-        Btn.Text = text .. (enabled and ": ON" or ": OFF")
-        callback(enabled)
-    end
+    
+    return container, toggle
 end
 
--- 1. INFINITE JUMP (COM PROTEÇÃO ANTI-RUBBERBAND)
-local ToggleInfJump = CreateButton("Inf Jump", 1, function(v)
-    State.InfJump = v
-end)
-
-UserInputService.JumpRequest:Connect(function()
-    if State.InfJump and LocalPlayer.Character then
-        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if humanoid and root then
-            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-            root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 50, root.AssemblyLinearVelocity.Z)
-        end
-    end
-end)
-
--- 2. CHÃO MÁGICO (4s AUTO-DISABLE)
-local ToggleChaoMagico
-
-local function ActivateChaoMagico(v)
-    State.ChaoMagico = v
-    if State.ChaoMagico then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            if Platform then Platform:Destroy() end
-            
-            Platform = Instance.new("Part")
-            Platform.Size = Vector3.new(6, 1, 6)
-            Platform.Anchored = true
-            Platform.CanCollide = true
-            Platform.Color = Color3.fromRGB(0, 0, 0)
-            Platform.Material = Enum.Material.SmoothPlastic
-            Platform.Parent = workspace
-
-            local root = char.HumanoidRootPart
-            Platform.CFrame = CFrame.new(root.Position.X, root.Position.Y - 3.5, root.Position.Z)
-
-            local conn
-            conn = RunService.Heartbeat:Connect(function(dt)
-                if State.ChaoMagico and Platform and char:FindFirstChild("HumanoidRootPart") then
-                    local currentPos = Platform.Position
-                    Platform.CFrame = CFrame.new(root.Position.X, currentPos.Y + (1.5 * dt), root.Position.Z)
-                else
-                    conn:Disconnect()
-                end
-            end)
-
-            task.delay(4, function()
-                if State.ChaoMagico then
-                    ToggleChaoMagico(false)
-                end
-            end)
-        end
-    else
-        if Platform then
-            Platform:Destroy()
-            Platform = nil
-        end
-    end
-end
-
-ToggleChaoMagico = CreateButton("Chão Mágico (F)", 2, ActivateChaoMagico)
-
--- 3. LEVITAÇÃO (3s AUTO-DISABLE)
-local ToggleLevitacao
-
-local function ActivateLevitacao(v)
-    State.Levitacao = v
-    if State.Levitacao then
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local root = char.HumanoidRootPart
-            
-            LevitateConnection = RunService.Heartbeat:Connect(function()
-                if State.Levitacao and root then
-                    root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 12, root.AssemblyLinearVelocity.Z)
-                end
-            end)
-
-            task.delay(3, function()
-                if State.Levitacao then
-                    ToggleLevitacao(false)
-                end
-            end)
-        end
-    else
-        if LevitateConnection then
-            LevitateConnection:Disconnect()
-            LevitateConnection = nil
-        end
-    end
-end
-
-ToggleLevitacao = CreateButton("Levitar (R)", 3, ActivateLevitacao)
-
--- 4. ESP NAME
-local function ApplyESP(plr)
-    if plr == LocalPlayer then return end
-    plr.CharacterAdded:Connect(function(char)
-        if State.ESPName then
-            task.wait(0.5)
-            if char:FindFirstChild("Head") and not char.Head:FindFirstChild("GomesNameESP") then
-                local bb = Instance.new("BillboardGui")
-                bb.Name = "GomesNameESP"
-                bb.Size = UDim2.new(0, 100, 0, 30)
-                bb.StudsOffset = Vector3.new(0, 2, 0)
-                bb.AlwaysOnTop = true
-                bb.Parent = char.Head
-
-                local lbl = Instance.new("TextLabel")
-                lbl.Size = UDim2.new(1, 0, 1, 0)
-                lbl.BackgroundTransparency = 1
-                lbl.Text = plr.Name
-                lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-                lbl.TextSize = 13
-                lbl.Font = Enum.Font.SourceSansBold
-                lbl.Parent = bb
-            end
+-- Função para criar Slider melhorado
+local function createSlider(name, minVal, maxVal, defaultVal, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -10, 0, 80)
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.Parent = scrollFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Name = "Label"
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = whiteFg
+    label.TextSize = 12
+    label.Font = Enum.Font.GothamBold
+    label.Text = name
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
+    
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Name = "ValueLabel"
+    valueLabel.Size = UDim2.new(0.3, 0, 0, 20)
+    valueLabel.Position = UDim2.new(0.7, 0, 0, 0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.TextColor3 = accentColor
+    valueLabel.TextSize = 12
+    valueLabel.Font = Enum.Font.GothamBold
+    valueLabel.Text = defaultVal
+    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valueLabel.Parent = container
+    
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Name = "SliderBg"
+    sliderBg.Size = UDim2.new(1, 0, 0, 8)
+    sliderBg.Position = UDim2.new(0, 0, 0, 35)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.Parent = container
+    
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(0, 4)
+    sliderCorner.Parent = sliderBg
+    
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Name = "SliderFill"
+    sliderFill.Size = UDim2.new((defaultVal - minVal) / (maxVal - minVal), 0, 1, 0)
+    sliderFill.BackgroundColor3 = accentColor
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = sliderBg
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(0, 4)
+    fillCorner.Parent = sliderFill
+    
+    local sliderButton = Instance.new("TextButton")
+    sliderButton.Name = "SliderButton"
+    sliderButton.Size = UDim2.new(0, 16, 0, 16)
+    sliderButton.Position = UDim2.new((defaultVal - minVal) / (maxVal - minVal), -8, 0.5, -8)
+    sliderButton.BackgroundColor3 = whiteFg
+    sliderButton.BorderSizePixel = 0
+    sliderButton.Text = ""
+    sliderButton.Parent = sliderBg
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = sliderButton
+    
+    local isDragging = false
+    
+    sliderButton.MouseButton1Down:Connect(function()
+        isDragging = true
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input, gameProcessed)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
         end
     end)
+    
+    RunService.RenderStepped:Connect(function()
+        if isDragging then
+            local mousePos = mouse.X
+            local sliderPos = sliderBg.AbsolutePosition.X
+            local sliderSize = sliderBg.AbsoluteSize.X
+            local percentage = math.clamp((mousePos - sliderPos) / sliderSize, 0, 1)
+            local value = math.floor(minVal + (maxVal - minVal) * percentage)
+            
+            sliderButton.Position = UDim2.new(percentage, -8, 0.5, -8)
+            sliderFill.Size = UDim2.new(percentage, 0, 1, 0)
+            valueLabel.Text = value
+            callback(value)
+        end
+    end)
+    
+    return container
 end
 
-for _, plr in pairs(Players:GetPlayers()) do ApplyESP(plr) end
-Players.PlayerAdded:Connect(ApplyESP)
+-- Adicionar Toggles e Sliders
+createToggle("Aimbot", function(enabled)
+    aimbotEnabled = enabled
+end)
 
-local ToggleESP = CreateButton("ESP Name", 4, function(v)
-    State.ESPName = v
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
-            local head = plr.Character.Head
-            if v then
-                if not head:FindFirstChild("GomesNameESP") then
-                    local bb = Instance.new("BillboardGui")
-                    bb.Name = "GomesNameESP"
-                    bb.Size = UDim2.new(0, 100, 0, 30)
-                    bb.StudsOffset = Vector3.new(0, 2, 0)
-                    bb.AlwaysOnTop = true
-                    bb.Parent = head
+createSlider("FOV Size", 50, 400, 150, function(value)
+    fovSize = value
+end)
 
-                    local lbl = Instance.new("TextLabel")
-                    lbl.Size = UDim2.new(1, 0, 1, 0)
-                    lbl.BackgroundTransparency = 1
-                    lbl.Text = plr.Name
-                    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-                    lbl.TextSize = 13
-                    lbl.Font = Enum.Font.SourceSansBold
-                    lbl.Parent = bb
-                end
-            else
-                if head:FindFirstChild("GomesNameESP") then
-                    head.GomesNameESP:Destroy()
-                end
-            end
-        end
+createToggle("Show FOV Circle", function(enabled)
+    fovVisible = enabled
+end)
+
+createSlider("Smoothness", 0.05, 0.5, 0.15, function(value)
+    smoothness = value / 100
+end)
+
+createToggle("ESP Box", function(enabled)
+    espEnabled = enabled
+end)
+
+createToggle("Ignore Bots", function(enabled)
+    ignoreBotsEnabled = enabled
+end)
+
+createSlider("Box Thickness", 1, 5, 2, function(value)
+    boxSize = value
+end)
+
+-- Função para fazer a GUI ser draggável
+local dragging = false
+local dragStart = Vector2.new(0, 0)
+local panelStart = UDim2.new(0, 0, 0, 0)
+
+titleLabel.MouseButton1Down:Connect(function()
+    dragging = true
+    dragStart = mouse.Position
+    panelStart = mainPanel.Position
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
     end
 end)
 
--- ATALHOS DE TECLADO (F e R)
+RunService.RenderStepped:Connect(function()
+    if dragging then
+        local delta = mouse.Position - dragStart
+        mainPanel.Position = UDim2.new(
+            panelStart.X.Scale, 
+            panelStart.X.Offset + delta.X, 
+            panelStart.Y.Scale, 
+            panelStart.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Tecla X para minimizar/abrir
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.F then
-        ToggleChaoMagico(not State.ChaoMagico)
-    elseif input.KeyCode == Enum.KeyCode.R then
-        ToggleLevitacao(not State.Levitacao)
+    if input.KeyCode == Enum.KeyCode.X then
+        guiVisible = not guiVisible
+        mainPanel.Visible = guiVisible
+        minimizeBtn.Text = guiVisible and "−" or "+"
     end
 end)
+
+-- Botão Minimizar
+minimizeBtn.MouseButton1Click:Connect(function()
+    guiVisible = not guiVisible
+    mainPanel.Visible = guiVisible
+    minimizeBtn.Text = guiVisible and "−" or "+"
+end)
+
+-- FOV Circle (Aimbot)
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = false
+fovCircle.Radius = fovSize
+fovCircle.Color = accentColor
+fovCircle.Thickness = 2
+fovCircle.Filled = false
+
+-- Atualizar FOV Circle
+RunService.RenderStepped:Connect(function()
+    if fovVisible and aimbotEnabled then
+        fovCircle.Position = mouse.Position
+        fovCircle.Radius = fovSize
+        fovCircle.Visible = true
+    else
+        fovCircle.Visible = false
+    end
+end)
+
+-- Função para verificar se player é bot
+local function isBot(player)
+    if not ignoreBotsEnabled then return false end
+    return player.Name:match("Bot") or player.Name:match("NPC") or player.Name:match("bot")
+end
+
+-- Tabela para armazenar ESP boxes
+local espBoxes = {}
+
+-- Função para desenhar ESP Box
+local function createEspBox(character)
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local boxId = "box_" .. character.Name
+    if espBoxes[boxId] then return end
+    
+    local box = {}
+    box.lines = {}
+    
+    for i = 1, 4 do
+        box.lines[i] = Drawing.new("Line")
+        box.lines[i].Color = accentColor
+        box.lines[i].Thickness = boxSize
+        box.lines[i].Visible = false
+    end
+    
+    espBoxes[boxId] = {character = character, box = box}
+end
+
+-- Atualizar ESP Boxes
+RunService.RenderStepped:Connect(function()
+    -- Limpar boxes inativas
+    for boxId, data in pairs(espBoxes) do
+        if not data.character or not data.character.Parent then
+            for _, line in ipairs(data.box.lines) do
+                line:Remove()
+            end
+            espBoxes[boxId] = nil
+        end
+    end
+    
+    -- Atualizar boxes ativas
+    if espEnabled then
+        for _, otherPlayer in pairs(Players:GetPlayers()) do
+            if otherPlayer ~= player and otherPlayer.Character then
+                if not isBot(otherPlayer) then
+                    createEspBox(otherPlayer.Character)
+                end
+            end
+        end
+        
+        for boxId, data in pairs(espBoxes) do
+            if data.character and data.character:FindFirstChild("HumanoidRootPart") then
+                local hrp = data.character.HumanoidRootPart
+                local humanoid = data.character:FindFirstChild("Humanoid")
+                
+                if humanoid and humanoid.Health > 0 then
+                    local camera = workspace.CurrentCamera
+                    local headPos = data.character:FindFirstChild("Head")
+                    if not headPos then return end
+                    
+                    local headScreen = camera:WorldToScreenPoint(headPos.Position)
+                    local feetScreen = camera:WorldToScreenPoint(hrp.Position + Vector3.new(0, -hrp.Size.Y/2, 0))
+                    
+                    local topY = headScreen.Y
+                    local bottomY = feetScreen.Y
+                    local height = bottomY - topY
+                    local width = height * 0.5
+                    local centerX = headScreen.X
+                    
+                    local topLeft = Vector2.new(centerX - width/2, topY)
+                    local topRight = Vector2.new(centerX + width/2, topY)
+                    local bottomLeft = Vector2.new(centerX - width/2, bottomY)
+                    local bottomRight = Vector2.new(centerX + width/2, bottomY)
+                    
+                    if headScreen.Z > 0 then
+                        data.box.lines[1].From = topLeft
+                        data.box.lines[1].To = topRight
+                        data.box.lines[1].Visible = true
+                        data.box.lines[1].Thickness = boxSize
+                        
+                        data.box.lines[2].From = topRight
+                        data.box.lines[2].To = bottomRight
+                        data.box.lines[2].Visible = true
+                        data.box.lines[2].Thickness = boxSize
+                        
+                        data.box.lines[3].From = bottomRight
+                        data.box.lines[3].To = bottomLeft
+                        data.box.lines[3].Visible = true
+                        data.box.lines[3].Thickness = boxSize
+                        
+                        data.box.lines[4].From = bottomLeft
+                        data.box.lines[4].To = topLeft
+                        data.box.lines[4].Visible = true
+                        data.box.lines[4].Thickness = boxSize
+                    else
+                        for _, line in ipairs(data.box.lines) do
+                            line.Visible = false
+                        end
+                    end
+                else
+                    for _, line in ipairs(data.box.lines) do
+                        line.Visible = false
+                    end
+                end
+            end
+        end
+    else
+        for _, data in pairs(espBoxes) do
+            for _, line in ipairs(data.box.lines) do
+                line.Visible = false
+            end
+        end
+    end
+end)
+
+-- Aimbot melhorado com suavidade
+local currentTarget = nil
+local targetLockTime = 0
+
+local function getClosestPlayerInFOV()
+    local closest = nil
+    local closestDistance = fovSize
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local humanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 and not isBot(otherPlayer) then
+                local character = otherPlayer.Character
+                if character:FindFirstChild("Head") then
+                    local headPos = character.Head.Position
+                    local screenPos, onScreen = Camera:WorldToScreenPoint(headPos)
+                    
+                    if onScreen then
+                        local mousePos = mouse.Position
+                        local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        
+                        if distance < closestDistance then
+                            closestDistance = distance
+                            closest = character.Head
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Aimbot Execution com suavidade e lock
+RunService.RenderStepped:Connect(function()
+    if aimbotEnabled then
+        local target = getClosestPlayerInFOV()
+        
+        if target then
+            currentTarget = target
+            targetLockTime = 0
+            
+            local screenPos = Camera:WorldToScreenPoint(target.Position)
+            local targetMousePos = Vector2.new(screenPos.X, screenPos.Y)
+            
+            -- Movimento suave em direção ao alvo
+            local currentMousePos = mouse.Position
+            local direction = (targetMousePos - currentMousePos).Unit
+            local distance = (targetMousePos - currentMousePos).Magnitude
+            local moveDistance = math.min(distance * smoothness, distance)
+            
+            local newX = currentMousePos.X + direction.X * moveDistance
+            local newY = currentMousePos.Y + direction.Y * moveDistance
+            
+            -- Mover o mouse
+            mouse.X = newX
+            mouse.Y = newY
+        else
+            currentTarget = nil
+            targetLockTime = targetLockTime + 1
+        end
+    end
+end)
+
+-- Notificação de carregamento
+print("✓ Aimbot GUI Loaded Successfully!")
+print("✓ Pressione X para minimizar/abrir a GUI")
+print("✓ Arraste pela barra de título para mover")
