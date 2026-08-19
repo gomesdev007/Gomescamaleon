@@ -8,14 +8,14 @@ local Camera = workspace.CurrentCamera
 
 -- Variables & Settings
 local Settings = {
-    MagicAim = false,
+    MagicAim = true,
     FOVSize = 120,
     ShowFOVCircle = true,
     IgnoreBots = true,
-    ESPBox = false
+    ESPBox = true
 }
 
--- FOV Circle Drawing
+-- FOV Circle Drawing (Centralizado na Tela)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Color = Color3.fromRGB(255, 255, 255)
 FOVCircle.Thickness = 1
@@ -179,7 +179,7 @@ UserInputService.InputBegan:Connect(function(input, gpe)
     end
 end)
 
--- Target Validation Logic
+-- Target Validation Logic (Sem Team Check - pega em qualquer um)
 local function IsValidTarget(player)
     if player == LocalPlayer or not player.Character then return false end
     local char = player.Character
@@ -188,13 +188,38 @@ local function IsValidTarget(player)
     if not hum or hum.Health <= 0 or not hrp then return false end
 
     if Settings.IgnoreBots then
-        -- Checa se é um player real ou bot configurado
+        -- Se estiver ativado, filtra se não for Player real ou se tiver marcação de Bot
         if not Players:GetPlayerFromCharacter(char) or char:FindFirstChild("IsBot") or string.find(string.lower(player.Name), "bot") then
             return false
         end
     end
 
     return true
+end
+
+-- Get Closest Target to Center Screen
+local function GetClosestTarget()
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local closestTarget = nil
+    local shortestDistance = Settings.FOVSize
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if IsValidTarget(player) then
+            local head = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
+            if head then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if dist < shortestDistance then
+                        shortestDistance = dist
+                        closestTarget = head
+                    end
+                end
+            end
+        end
+    end
+
+    return closestTarget
 end
 
 -- ESP Storage
@@ -224,10 +249,20 @@ Players.PlayerRemoving:Connect(RemoveESP)
 
 -- Main Loop
 RunService.RenderStepped:Connect(function()
-    -- Atualização do Círculo FOV
-    local mousePos = UserInputService:GetMouseLocation()
-    FOVCircle.Position = mousePos
-    FOVCircle.Visible = Settings.ShowFOVCircle and MainFrame.Visible
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    -- Fix: FOV Travado no Centro da Tela + Toggle funcional
+    FOVCircle.Position = screenCenter
+    FOVCircle.Radius = Settings.FOVSize
+    FOVCircle.Visible = Settings.ShowFOVCircle
+
+    -- Mira Mágica (Câmera Puxa Suave para o Alvo mais Próximo do FOV)
+    if Settings.MagicAim then
+        local target = GetClosestTarget()
+        if target then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+        end
+    end
 
     -- Atualização ESP Box
     for player, box in pairs(ESPBoxes) do
